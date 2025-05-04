@@ -1,0 +1,217 @@
+package com.example.helpmitra
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.telephony.SmsManager
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.*
+import com.example.helpmitra.ui.theme.HelpMitraTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            HelpMitraTheme {
+                AppNavigation()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppNavigation() {
+    val navController = rememberNavController()
+    NavHost(navController, startDestination = "sos") {
+        composable("sos") { SOSScreen(navController) }
+        composable("settings") { SaveContactsScreen(navController) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SOSScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("helpmitra_prefs", Context.MODE_PRIVATE)
+    val contacts = listOf(
+        prefs.getString("contact1", "") ?: "",
+        prefs.getString("contact2", "") ?: "",
+        prefs.getString("contact3", "") ?: ""
+    )
+
+    val permissionLauncher = rememberLauncherForActivityResult(RequestPermission()) { granted ->
+        if (granted) sendSOS(context, contacts)
+        else Toast.makeText(context, "SMS permission denied!", Toast.LENGTH_SHORT).show()
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("HelpMitra") },
+                actions = {
+                    IconButton(onClick = { navController.navigate("settings") }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Click the button for emergency",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            Button(
+                onClick = {
+                    val perm = Manifest.permission.SEND_SMS
+                    if (ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED) {
+                        sendSOS(context, contacts)
+                    } else {
+                        permissionLauncher.launch(perm)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                shape = CircleShape,
+                modifier = Modifier.size(200.dp)
+            ) {
+                Text("SOS", color = MaterialTheme.colorScheme.onError, style = MaterialTheme.typography.headlineMedium)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SaveContactsScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("helpmitra_prefs", Context.MODE_PRIVATE)
+
+    var name1 by remember { mutableStateOf("") }
+    var name2 by remember { mutableStateOf("") }
+    var name3 by remember { mutableStateOf("") }
+
+    var c1 by remember { mutableStateOf("") }
+    var c2 by remember { mutableStateOf("") }
+    var c3 by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        name1 = prefs.getString("name1", "") ?: ""
+        name2 = prefs.getString("name2", "") ?: ""
+        name3 = prefs.getString("name3", "") ?: ""
+
+        c1 = prefs.getString("contact1", "") ?: ""
+        c2 = prefs.getString("contact2", "") ?: ""
+        c3 = prefs.getString("contact3", "") ?: ""
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Save Contacts") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // Contact 1
+            OutlinedTextField(
+                value = name1, onValueChange = { name1 = it },
+                label = { Text("Name 1") }, modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = c1, onValueChange = { c1 = it },
+                label = { Text("Contact 1") }, modifier = Modifier.fillMaxWidth()
+            )
+
+            // Contact 2
+            OutlinedTextField(
+                value = name2, onValueChange = { name2 = it },
+                label = { Text("Name 2") }, modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = c2, onValueChange = { c2 = it },
+                label = { Text("Contact 2") }, modifier = Modifier.fillMaxWidth()
+            )
+
+            // Contact 3
+            OutlinedTextField(
+                value = name3, onValueChange = { name3 = it },
+                label = { Text("Name 3") }, modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = c3, onValueChange = { c3 = it },
+                label = { Text("Contact 3") }, modifier = Modifier.fillMaxWidth()
+            )
+
+            Button(
+                onClick = {
+                    prefs.edit()
+                        .putString("name1", name1)
+                        .putString("name2", name2)
+                        .putString("name3", name3)
+                        .putString("contact1", c1)
+                        .putString("contact2", c2)
+                        .putString("contact3", c3)
+                        .apply()
+                    Toast.makeText(context, "Contacts saved!", Toast.LENGTH_SHORT).show()
+                    navController.popBackStack()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Save Contacts")
+            }
+        }
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun sendSOS(context: Context, contacts: List<String>) {
+    try {
+        val sms = SmsManager.getDefault()
+        val msg = "\uD83D\uDEA8 SOS! I need help immediately."
+        contacts.filter { it.isNotBlank() }.forEach { number ->
+            sms.sendTextMessage(number, null, msg, null, null)
+        }
+        Toast.makeText(context, "SOS sent!", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
